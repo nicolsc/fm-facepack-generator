@@ -100,11 +100,23 @@ module.exports = {
   getConfigFile : function(members){
     const self = this;
     
-    
     let output = '<record>\n';
-    output += '\t<boolan id="preload" value="false">\n';
-    output += '\t<boolean id="amap" value="false">\n';
+    output += '<!-- resource manager options -->\n';
+
+    output += '<!-- dont preload anything in this folder -->\n';
+    output += '<boolean id="preload" value="false"/>\n';
+
+    output += '<!-- turn off auto mapping -->\n';
+    output += '<boolean id="amap" value="false"/>\n';
+
+    output += '<!-- logo mappings -->\n';
+    output += '<!-- the following XML maps pictures inside this folder into other positions\n';
+    output += 'in the resource system, which allows this folder to be dropped into any\n';
+    output += 'place in the graphics folder and still have the game pick up the graphics\n';
+    output += 'files from the correct places\n';
+    output += '-->\n';
     output += '\t<list id="maps">\n';
+    
     members.forEach(function(entry){
       output += self.getConfigRecord(entry);
     });
@@ -115,7 +127,7 @@ module.exports = {
     return output;
   },
   getConfigRecord: function(id){
-    return '<record from="'+id+'" to="graphics/pictures/person/'+id+'/portrait" />';
+    return '\t\t<record from="'+id+'" to="graphics/pictures/person/'+id+'/portrait" />\n';
   },
   downloadPicture: function(folderName, id){
     const saveTo = folderName+'/'+id+'.png';
