@@ -1,0 +1,14 @@
+{
+  "name": "fm-faces",
+  "version": "1.0.0",
+  "description": "Grab faces from sortitoutsi website & generate config file",
+  "main": "grab-faces.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "jsdom" : "4.0.x"
+  },
+  "author": "",
+  "license": "ISC"
+}
