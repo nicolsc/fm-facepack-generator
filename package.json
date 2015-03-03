@@ -1,8 +1,8 @@
 {
   "name": "fm-faces",
   "version": "1.0.0",
-  "description": "Grab faces from sortitoutsi website & generate config file",
-  "main": "grab-faces.js",
+  "description": "Get a facepack for any given team ID (pics + config file)",
+  "main": "facepack.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
