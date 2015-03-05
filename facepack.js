@@ -22,5 +22,6 @@ sortitoutsi.getTeamPack(objectId)
 .catch(
   function(err){
     console.error(':(', err);
+    process.exit(1);
   }
 );
