@@ -19,9 +19,8 @@ function delayedCallback(countdown, func){
 
 module.exports = {
   getTeamPack: function(id){
-    const self = this;
     return new Promise(function(resolve, reject){
-      self.getTeamMembers(id)
+      this.getTeamMembers(id)
       .then(
         function(members){
           
@@ -41,29 +40,29 @@ module.exports = {
             }
             else{
               
-              self.writeConfigFile(folderName, members)
+              this.writeConfigFile(folderName, members)
               .then(cb)
               .catch(reject);
 
               members.forEach(function(item){
-                self.downloadPicture(folderName, item)
+                this.downloadPicture(folderName, item)
                 .then(function(){
                   cb();
                 })
                 .catch(reject);
-              });
+              }.bind(this));
             }
             
-          });
+          }.bind(this));
           
-        }
+        }.bind(this)
       )
       .catch(
         function(err){
           reject(new Error(err));
         }
       );
-    });
+    }.bind(this));
   },
   getTeamMembers : function(id){
     return new Promise(function(resolve, reject){
@@ -98,8 +97,6 @@ module.exports = {
     
   },
   getConfigFile : function(members){
-    const self = this;
-    
     let output = '<record>\n';
     output += '<!-- resource manager options -->\n';
 
@@ -118,8 +115,8 @@ module.exports = {
     output += '\t<list id="maps">\n';
     
     members.forEach(function(entry){
-      output += self.getConfigRecord(entry);
-    });
+      output += this.getConfigRecord(entry);
+    }.bind(this));
     
     output += '\t</list>\n';
     output += '</record>';
