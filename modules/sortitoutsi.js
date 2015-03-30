@@ -7,7 +7,12 @@ const http = require('http');
 
 const teamUrl = 'http://sortitoutsi.net/football-manager-2015/team/{id}/whatever';
 const pictureUrl = 'http://sortitoutsi.net/uploads/face/{id}.png';
-const folder = './facepack-{id}';
+const facesFolder = './facepack-{id}';
+const competitionUrl = 'http://sortitoutsi.net/football-manager-2015/league/{id}/whatever';
+const logoUrl = 'http://sortitoutsi.net/uploads/team/{id}.png';
+const smallLogoUrl = 'http://sortitoutsi.net/uploads/team_sm/{id}.png';
+const regularLogosFolder = './logos-{id}';
+const smallLogosFolder = './small-logos-{id}';
 
 function delayedCallback(countdown, func){
   return function(){
@@ -18,9 +23,70 @@ function delayedCallback(countdown, func){
 }
 
 module.exports = {
+  getCompetitionPack: function(id){
+    return new Promise(function(resolve, reject){
+      this.getObjectChildren(id, 'competition')
+      .then(
+        function(teams){
+          
+          teams = teams.slice(700,800);
+          //Now, we need to do members.length + 1 async operation
+          // * Grab the {teams.length} logos (small + normal)
+          // * Write the config.xml
+          // Then we'll zip the facepack
+          let cb = delayedCallback((teams.length+1)*2, function(){
+            resolve();
+          });
+          
+          const regularFolderName = regularLogosFolder.replace(/{id}/, id);
+          const smallFolderName = smallLogosFolder.replace(/{id}/, id);
+          fs.mkdir(regularFolderName, function(err){
+            if (err && err.code !== 'EEXIST'){
+              reject(err);
+            }
+            else{
+              fs.mkdir(smallFolderName, function(err){
+                if (err && err.code !== 'EEXIST'){
+                  reject(err);
+                }
+                else{
+                  teams.forEach(function(item){
+                    this.downloadImage(regularFolderName, item, 'team')
+                    .then(function(){
+                      cb();
+                    })
+                    .catch(reject);
+
+                    this.downloadImage(smallFolderName, item, 'team-small')
+                    .then(function(){
+                      cb();
+                    })
+                    .catch(reject);
+
+                  }.bind(this));
+                  
+                  this.writeConfigFile(regularFolderName, teams, 'team')
+                  .then(cb)
+                  .catch(reject);
+
+                  this.writeConfigFile(smallFolderName, teams, 'team-small')
+                  .then(cb)
+                  .catch(reject);
+                }
+              }.bind(this));
+            }
+          }.bind(this));
+          
+        }.bind(this)
+      )
+      .catch(function(err){
+        reject(new Error(err));
+      });
+    }.bind(this));
+  },
   getTeamPack: function(id){
     return new Promise(function(resolve, reject){
-      this.getTeamMembers(id)
+      this.getObjectChildren(id, 'team')
       .then(
         function(members){
           
@@ -32,7 +98,7 @@ module.exports = {
             resolve();
           });
           
-          const folderName =folder.replace(/{id}/, id);
+          const folderName =facesFolder.replace(/{id}/, id);
           
           fs.mkdir(folderName, function(err){
             if (err && err.code !== 'EEXIST'){
@@ -40,12 +106,12 @@ module.exports = {
             }
             else{
               
-              this.writeConfigFile(folderName, members)
+              this.writeConfigFile(folderName, members, 'person')
               .then(cb)
               .catch(reject);
 
               members.forEach(function(item){
-                this.downloadPicture(folderName, item)
+                this.downloadImage(folderName, item, 'person')
                 .then(function(){
                   cb();
                 })
@@ -64,11 +130,24 @@ module.exports = {
       );
     }.bind(this));
   },
-  getTeamMembers : function(id){
+  /**
+  * Get the _children_ (people | teams)
+  * From a given _object_ (team | competition)
+  **/
+  getObjectChildren: function(id, type){
     return new Promise(function(resolve, reject){
-      const url = teamUrl.replace(/{id}/, id);
-      const extractIdFromPicSrcRegExp = /\/([0-9]*)\.png$/;
-      
+      const self = this;
+      let url;
+      switch(type){
+          case 'team':
+            url = teamUrl.replace(/{id}/, id);
+          break;
+          case 'competition':
+            url = competitionUrl.replace(/{id}/, id);
+          break;
+          default:
+            return reject(new Error('[getChildren] Unknown type '+type));
+      }
       jsdom.env({
         url : url,
         scripts: ['http://code.jquery.com/jquery.js'],
@@ -77,26 +156,25 @@ module.exports = {
             reject(new Error(err));
           }
           else{
-            let members = [];
+            let items = [];
             let tmp;
-            window.$('.player_table tbody tr').each(function(){
-              tmp =extractIdFromPicSrcRegExp.exec( window.$('td:first img', this).attr('src'));
+            window.$('.table tbody tr').each(function(){
+              tmp =self.getIdFromPicSrc( window.$('td:first img', this).attr('src'));
               if (tmp && tmp.length && tmp.length > 1){
-                members.push(tmp.pop());
+                items.push(tmp.pop());
               }
             });
 
-            console.log('%s members', members.length);
+            console.log('%s items', items.length);
 
-            resolve(members);
+            resolve(items);
           }
         }
       });
       
-    });
-    
+    }.bind(this));
   },
-  getConfigFile : function(members){
+  getConfigFile : function(members, type){
     let output = '<record>\n';
     output += '<!-- resource manager options -->\n';
 
@@ -115,7 +193,7 @@ module.exports = {
     output += '\t<list id="maps">\n';
     
     members.forEach(function(entry){
-      output += this.getConfigRecord(entry);
+      output += this.getConfigRecord(entry, type);
     }.bind(this));
     
     output += '\t</list>\n';
@@ -123,14 +201,39 @@ module.exports = {
     
     return output;
   },
-  getConfigRecord: function(id){
-    return '\t\t<record from="'+id+'" to="graphics/pictures/person/'+id+'/portrait" />\n';
+  getConfigRecord: function(id, type){
+    switch (type){
+        case 'person':
+          return '\t\t<record from="'+id+'" to="graphics/pictures/person/'+id+'/portrait" />\n';
+        case 'team':
+          return '\t\t<record from="'+id+'" to="graphics/pictures/club/'+id+'/logo" />\n';
+        case 'team-small':
+          return '\t\t<record from="'+id+'" to="graphics/pictures/club/'+id+'/icon" />\n';
+        default:
+          return '';
+    }
   },
-  downloadPicture: function(folderName, id){
+  downloadImage: function(folderName, id, type){
     const saveTo = folderName+'/'+id+'.png';
     return new Promise(function(resolve, reject){
+      let url;
       let wStream;
-      http.get(pictureUrl.replace(/{id}/, id), function(res){
+      
+      switch (type){
+        case 'person':
+          url = pictureUrl.replace(/{id}/, id);
+          break;
+        case 'team':
+          url = logoUrl.replace(/{id}/, id);
+          break;
+        case 'team-small':
+          url = smallLogoUrl.replace(/{id}/, id);
+          break;
+        default:
+          return reject(new Error('[downloadImage] Unknown type '+type));
+      }
+      //console.log('Fetching %', url);
+      http.get(url, function(res){
         function onData(chunk){
           //console.log('Received %s bytes', chunk.length);
         }
@@ -159,8 +262,8 @@ module.exports = {
       
     });
   },
-  writeConfigFile: function(folderName, members){
-    const fileContent = this.getConfigFile(members);
+  writeConfigFile: function(folderName, members, type){
+    const fileContent = this.getConfigFile(members, type);
     return new Promise(function (resolve, reject){
       fs.writeFile(folderName+'/config.xml', fileContent, function(err){
         if (err){
@@ -169,5 +272,8 @@ module.exports = {
         resolve();
       });
     });
+  },
+  getIdFromPicSrc: function(url){
+    return /\/([0-9]*)\.png$/.exec(url);
   }
 };

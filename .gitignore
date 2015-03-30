@@ -1,2 +1,4 @@
 node_modules/
-facepack-*
+facepack-*/
+logos-*/
+small-logos-*
