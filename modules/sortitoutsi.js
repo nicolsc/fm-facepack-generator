@@ -29,7 +29,7 @@ module.exports = {
       .then(
         function(teams){
           
-          teams = teams.slice(700,800);
+          teams = teams.slice(0,100);
           //Now, we need to do members.length + 1 async operation
           // * Grab the {teams.length} logos (small + normal)
           // * Write the config.xml
